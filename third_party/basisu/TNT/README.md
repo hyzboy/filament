@@ -1,0 +1,43 @@
+This folder was last updated as follows:
+
+    export ver=1.16.3
+    cd third_party
+    curl -L -O https://github.com/BinomialLLC/basis_universal/archive/refs/tags/${ver}.zip
+    unzip ${ver}.zip
+    mv basis_universal-* basis_new
+    rsync -r basis_new/ basisu/ --delete --exclude tnt
+    rm -rf ${ver}.zip basis_new
+    git add basisu ; git status
+
+We modified the basis CMakeLists as follows.
+
+(1)
+
+Disable some warnings by adding the following snippet right before the definition of
+BASISU_SRC_LIST.
+
+```
+set (DISABLE_WARNINGS "-Wno-unused-but-set-variable -Wno-unused-lambda-capture")
+set(CMAKE_CXX_FLAGS_RELEASE  "${CMAKE_CXX_FLAGS_RELEASE} ${DISABLE_WARNINGS}")
+set(CMAKE_C_FLAGS_RELEASE  "${CMAKE_C_FLAGS_RELEASE} ${DISABLE_WARNINGS}")
+set(CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} ${DISABLE_WARNINGS}")
+set(CMAKE_C_FLAGS_DEBUG  "${CMAKE_C_FLAGS_DEBUG} ${DISABLE_WARNINGS}")
+```
+
+(2)
+
+Remove the `CMAKE_RUNTIME_OUTPUT_DIRECTORY` setter and strip commands from their CMakeLists, because
+we prefer to use the default location for the executable.
+
+(3)
+
+Add a library target called `basis_encoder` because we prefer to use it as a library, not an
+executable.
+
+(4)
+
+Add a library target called `basis_transcoder` for use as a lean & mean reader-only library.
+
+(5)
+
+Do not call `find_package( OpenCL )` unless the OPENCL option is enabled.
