@@ -67,7 +67,7 @@ static const char* IBL_FOLDER = "assets/ibl/lightroom_14b";
 static void printUsage(char* name) {
     std::string exec_name(utils::Path(name).getName());
     std::string usage(
-            "SHOWCASE renders a Suzanne model with S3TC textures.\n"
+            "SHOWCASE renders a Suzanne model with compressed textures.\n"
             "Usage:\n"
             "    SHOWCASE [options]\n"
             "Options:\n"
@@ -146,7 +146,7 @@ int main(int argc, char** argv) {
         auto& em = utils::EntityManager::get();
 
         // Create textures. The KTX bundles are freed by KtxUtility.
-        auto albedo = new image::KtxBundle(MONKEY_ALBEDO_S3TC_DATA, MONKEY_ALBEDO_S3TC_SIZE);
+        auto albedo = new image::KtxBundle(MONKEY_ALBEDO_DATA, MONKEY_ALBEDO_SIZE);
         auto ao = new image::KtxBundle(MONKEY_AO_DATA, MONKEY_AO_SIZE);
         auto metallic = new image::KtxBundle(MONKEY_METALLIC_DATA, MONKEY_METALLIC_SIZE);
         auto roughness = new image::KtxBundle(MONKEY_ROUGHNESS_DATA, MONKEY_ROUGHNESS_SIZE);
