@@ -43,7 +43,30 @@ struct FinalFormatInfo {
 };
 }
 
+// This function returns various information about a Filament internal format, most notably its
+// equivalent BasisU enumerant.
+//
 // Return by value isn't expensive here due to copy elision.
+//
+// Note that Filament's internal format list mimics the Vulkan format list, which
+// embeds transfer function information (i.e. sRGB or not) into the format, whereas
+// the basis format list does not.
+//
+// The following formats supported by BasisU but are not supported by Filament.
+//
+//     transcoder_texture_format::cTFETC1_RGB
+//     transcoder_texture_format::cTFATC_RGB
+//     transcoder_texture_format::cTFATC_RGBA
+//     transcoder_texture_format::cTFFXT1_RGB
+//     transcoder_texture_format::cTFPVRTC2_4_RGB
+//     transcoder_texture_format::cTFPVRTC2_4_RGBA
+//     transcoder_texture_format::cTFPVRTC1_4_RGB
+//     transcoder_texture_format::cTFPVRTC1_4_RGBA
+//     transcoder_texture_format::cTFBC4_R
+//     transcoder_texture_format::cTFBC5_RG
+//     transcoder_texture_format::cTFBC7_RGBA (this format would add size bloat to the transcoder)
+//     transcoder_texture_format::cTFBGR565   (note the blue/red swap)
+//
 static FinalFormatInfo getFinalFormatInfo(Texture::InternalFormat fmt) {
     using tif = Texture::InternalFormat;
     using tct = Texture::CompressedType;
@@ -77,107 +100,6 @@ static FinalFormatInfo getFinalFormatInfo(Texture::InternalFormat fmt) {
     }
 }
 
-// This function converts a Filament format enumerant into a BasisU enumerant.
-//
-// Note that Filament's internal format list mimics the Vulkan format list, which
-// embeds transfer function information (i.e. sRGB or not) into the format, whereas
-// the basis format list does not.
-//
-// The following formats supported by BasisU but are not supported by Filament.
-//
-//     transcoder_texture_format::cTFETC1_RGB
-//     transcoder_texture_format::cTFATC_RGB
-//     transcoder_texture_format::cTFATC_RGBA
-//     transcoder_texture_format::cTFFXT1_RGB
-//     transcoder_texture_format::cTFPVRTC2_4_RGB
-//     transcoder_texture_format::cTFPVRTC2_4_RGBA
-//     transcoder_texture_format::cTFPVRTC1_4_RGB
-//     transcoder_texture_format::cTFPVRTC1_4_RGBA
-//     transcoder_texture_format::cTFBC4_R
-//     transcoder_texture_format::cTFBC5_RG
-//     transcoder_texture_format::cTFBC7_RGBA (this format would add size bloat to the transcoder)
-//     transcoder_texture_format::cTFBGR565   (note the blue/red swap)
-//
-static bool convertFormat(Texture::InternalFormat fmt, transcoder_texture_format* dest,
-        Transform* pTransform = nullptr) {
-    using Fmt = Texture::InternalFormat;
-    Transform transform;
-    if (!pTransform) {
-        pTransform = &transform;
-    }
-    switch (fmt) {
-        case Fmt::ETC2_EAC_SRGBA8:
-            *pTransform = ktxreader::Ktx2Reader::sRGB;
-            *dest = transcoder_texture_format::cTFETC2_RGBA;
-            return true;
-        case Fmt::ETC2_EAC_RGBA8:
-            *pTransform = ktxreader::Ktx2Reader::LINEAR;
-            *dest = transcoder_texture_format::cTFETC2_RGBA;
-            return true;
-
-        case Fmt::DXT1_SRGB:
-            *pTransform = ktxreader::Ktx2Reader::sRGB;
-            *dest = transcoder_texture_format::cTFBC1_RGB;
-            return true;
-        case Fmt::DXT1_RGB:
-            *pTransform = ktxreader::Ktx2Reader::LINEAR;
-            *dest = transcoder_texture_format::cTFBC1_RGB;
-            return true;
-
-        case Fmt::DXT3_SRGBA:
-            *pTransform = ktxreader::Ktx2Reader::sRGB;
-            *dest = transcoder_texture_format::cTFBC3_RGBA;
-            return true;
-        case Fmt::DXT3_RGBA:
-            *pTransform = ktxreader::Ktx2Reader::LINEAR;
-            *dest = transcoder_texture_format::cTFBC3_RGBA;
-            return true;
-
-        case Fmt::SRGB8_ALPHA8_ASTC_4x4:
-            *pTransform = ktxreader::Ktx2Reader::sRGB;
-            *dest = transcoder_texture_format::cTFASTC_4x4_RGBA;
-            return true;
-        case Fmt::RGBA_ASTC_4x4:
-            *pTransform = ktxreader::Ktx2Reader::LINEAR;
-            *dest = transcoder_texture_format::cTFASTC_4x4_RGBA;
-            return true;
-
-        case Fmt::EAC_R11:
-            *pTransform = ktxreader::Ktx2Reader::LINEAR;
-            *dest = transcoder_texture_format::cTFETC2_EAC_R11;
-            return true;
-
-        // The following format is useful for normal maps.
-        // Note that BasisU supports only the unsigned variant.
-        case Fmt::EAC_RG11:
-            *pTransform = ktxreader::Ktx2Reader::LINEAR;
-            *dest = transcoder_texture_format::cTFETC2_EAC_RG11;
-            return true;
-
-        case Fmt::SRGB8_A8:
-            *pTransform = ktxreader::Ktx2Reader::sRGB;
-            *dest = transcoder_texture_format::cTFRGBA32;
-            return true;
-        case Fmt::RGBA8:
-            *pTransform = ktxreader::Ktx2Reader::LINEAR;
-            *dest = transcoder_texture_format::cTFRGBA32;
-            return true;
-
-        case Fmt::RGB565:
-            *pTransform = ktxreader::Ktx2Reader::LINEAR;
-            *dest = transcoder_texture_format::cTFRGB565;
-            return true;
-
-        case Fmt::RGBA4:
-            *pTransform = ktxreader::Ktx2Reader::LINEAR;
-            *dest = transcoder_texture_format::cTFRGBA4444;
-            return true;
-
-        default: break;
-    }
-    return false;
-}
-
 namespace ktxreader {
 
 Ktx2Reader::Ktx2Reader(Engine& engine, bool quiet) :
@@ -193,8 +115,7 @@ Ktx2Reader::~Ktx2Reader() {
 }
 
 bool Ktx2Reader::requestFormat(Texture::InternalFormat format) {
-    transcoder_texture_format dest;
-    if (!convertFormat(format, &dest)) {
+    if (!getFinalFormatInfo(format).isSupported) {
         return false;
     }
     for (Texture::InternalFormat fmt : mRequestedFormats) {
@@ -251,18 +172,14 @@ Texture* Ktx2Reader::load(const uint8_t* data, size_t size, Transform transform)
     bool found = false;
     Texture::InternalFormat resolvedFormat;
     for (Texture::InternalFormat requestedFormat : mRequestedFormats) {
-        transcoder_texture_format basisFormat;
-        Transform impliedTransform;
-        if (!convertFormat(requestedFormat, &basisFormat, &impliedTransform)) {
-            continue;
-        }
-        if (impliedTransform != transform) {
-            continue;
-        }
-        if (!basis_is_format_supported(basisFormat, mTranscoder->get_format())) {
-            continue;
-        }
         if (!Texture::isTextureFormatSupported(mEngine, requestedFormat)) {
+            continue;
+        }
+        const auto info = getFinalFormatInfo(requestedFormat);
+        if (!info.isSupported || info.transformFunction != transform) {
+            continue;
+        }
+        if (!basis_is_format_supported(info.basisFormat, mTranscoder->get_format())) {
             continue;
         }
         const uint32_t layerIndex = 0;
@@ -285,8 +202,7 @@ Texture* Ktx2Reader::load(const uint8_t* data, size_t size, Transform transform)
         return nullptr;
     }
 
-    transcoder_texture_format basisFormat;
-    convertFormat(resolvedFormat, &basisFormat);
+    const auto formatInfo = getFinalFormatInfo(resolvedFormat);
 
     Texture* texture = Texture::Builder()
         .width(mTranscoder->get_width())
@@ -296,38 +212,7 @@ Texture* Ktx2Reader::load(const uint8_t* data, size_t size, Transform transform)
         .format(resolvedFormat)
         .build(mEngine);
 
-    // TODO: set Texture::Type (for the no-compressed ones)
-    // TODO: Merge this with the function at the top, call it "getFormatInfo" or something.
-    using Fmt = Texture::InternalFormat;
-    Texture::CompressedType cdatatype;
-    Texture::Type ucdatatype;
-    bool isCompressed = true;
-    switch (resolvedFormat) {
-        case Fmt::ETC2_EAC_RGBA8: cdatatype = Texture::CompressedType::ETC2_EAC_RGBA8; break;
-        case Fmt::ETC2_EAC_SRGBA8: cdatatype = Texture::CompressedType::ETC2_EAC_SRGBA8; break;
-        case Fmt::DXT1_RGB: cdatatype = Texture::CompressedType::DXT1_RGB; break;
-        case Fmt::DXT1_SRGB: cdatatype = Texture::CompressedType::DXT1_SRGB; break;
-        case Fmt::DXT3_RGBA: cdatatype = Texture::CompressedType::DXT3_RGBA; break;
-        case Fmt::DXT3_SRGBA: cdatatype = Texture::CompressedType::DXT3_SRGBA; break;
-        case Fmt::RGBA_ASTC_4x4: cdatatype = Texture::CompressedType::RGBA_ASTC_4x4; break;
-        case Fmt::SRGB8_ALPHA8_ASTC_4x4: cdatatype = Texture::CompressedType::SRGB8_ALPHA8_ASTC_4x4; break;
-        case Fmt::EAC_R11: cdatatype = Texture::CompressedType::EAC_R11; break;
-        case Fmt::EAC_RG11: cdatatype = Texture::CompressedType::EAC_RG11; break;
-
-        case Fmt::SRGB8_A8:
-        case Fmt::RGBA8:
-        case Fmt::RGB565:
-        case Fmt::RGBA4:
-            // TODO: set ucdatatype
-            isCompressed = false;
-            assert(false && "TODO: Uncompressed types not yet implemented");
-            break;
-        default:
-            assert(false && "Unreachable due to the earlier pass through the requested formats.");
-    }
-
-    // In theory we could pass "free" directly into the callback but doing so triggers
-    // ASAN warnings and WASM compiler issues.
+    // In theory we could pass "free" directly into the callback but that triggers ASAN warnings.
     Texture::PixelBufferDescriptor::Callback cb = [](void* buf, size_t, void* userdata) {
         free(buf);
     };
@@ -335,19 +220,21 @@ Texture* Ktx2Reader::load(const uint8_t* data, size_t size, Transform transform)
     const uint32_t layerIndex = 0;
     const uint32_t faceIndex = 0;
     for (uint32_t levelIndex = 0; levelIndex < mTranscoder->get_levels(); levelIndex++) {
-        basist::ktx2_image_level_info info;
-        mTranscoder->get_image_level_info(info, levelIndex, layerIndex, faceIndex);
-        const basisu::texture_format destFormat = basis_get_basisu_texture_format(basisFormat);
+        basist::ktx2_image_level_info levelInfo;
+        mTranscoder->get_image_level_info(levelInfo, levelIndex, layerIndex, faceIndex);
+        const basisu::texture_format destFormat = basis_get_basisu_texture_format(formatInfo.basisFormat);
         const uint32_t qwordsPerBlock = basisu::get_qwords_per_block(destFormat);
-        const size_t byteCount = sizeof(uint64_t) * qwordsPerBlock * info.m_total_blocks;
+        const size_t byteCount = sizeof(uint64_t) * qwordsPerBlock * levelInfo.m_total_blocks;
         uint64_t* const blocks = (uint64_t*) malloc(byteCount);
         const uint32_t flags = 0;
         if (!mTranscoder->transcode_image_level(levelIndex, layerIndex, faceIndex, blocks,
-                info.m_total_blocks, basisFormat, flags)) {
+                levelInfo.m_total_blocks, formatInfo.basisFormat, flags)) {
             utils::slog.e << "Failed to transcode level " << levelIndex << utils::io::endl;
             return nullptr;
         }
-        Texture::PixelBufferDescriptor pbd(blocks, byteCount, cdatatype, byteCount, cb, nullptr);
+        assert(formatInfo.isCompressed);
+        Texture::PixelBufferDescriptor pbd(blocks, byteCount, formatInfo.compressedPixelDataType,
+                byteCount, cb, nullptr);
         texture->setImage(mEngine, levelIndex, std::move(pbd));
     }
 
