@@ -115,9 +115,10 @@ Driver* OpenGLDriver::create(
 
     // here we check we're on a supported version of GL before initializing the driver
     GLint major = 0, minor = 0;
-    bool success = OpenGLContext::queryOpenGLVersion(&major, &minor);
+    glGetIntegerv(GL_MAJOR_VERSION, &major);
+    glGetIntegerv(GL_MINOR_VERSION, &minor);
 
-    if (UTILS_UNLIKELY(!success)) {
+    if (UTILS_UNLIKELY(glGetError() != GL_NO_ERROR)) {
         PANIC_LOG("Can't get OpenGL version");
         cleanup:
         ec->terminate();
